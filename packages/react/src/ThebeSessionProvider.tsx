@@ -1,8 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
-import type { ThebeSession } from 'thebe-core';
+import type { ThebeSession, ThebeEventData } from 'thebe-core';
 import { useThebeServer } from './ThebeServerProvider';
 import { useRenderMimeRegistry } from './ThebeRenderMimeRegistryProvider';
-import { ThebeEventData } from 'thebe-core';
 import { useThebeLoader } from './ThebeLoaderProvider';
 
 interface ThebeSessionContextData {
@@ -60,6 +59,7 @@ export function ThebeSessionProvider({
         setError(`session ${session.path} - ${data.status} - ${data.message}`);
       }
     };
+    if (unsubscribe) unsubscribe();
     setUnsubscribe(config.events.on(core.ThebeEventType.status, handler));
   }, [core, config, session]);
 
@@ -93,8 +93,6 @@ export function ThebeSessionProvider({
   useEffect(() => {
     return () => {
       if (shutdownOnUnmount) {
-        unsubscribe?.();
-        setUnsubscribe(undefined);
         session?.shutdown().then(() => {
           setReady(false);
           setStarting(false);
@@ -103,6 +101,16 @@ export function ThebeSessionProvider({
       }
     };
   }, [session]);
+
+  const shutdown = async () => {
+    if (session) {
+      await session.shutdown();
+      setSession(undefined);
+      setReady(false);
+      setStarting(false);
+      setError(undefined);
+    }
+  };
 
   return (
     <ThebeSessionContext.Provider
@@ -119,17 +127,7 @@ export function ThebeSessionProvider({
             startSession();
           }
         },
-        shutdown: async () => {
-          if (session) {
-            unsubscribe?.();
-            setUnsubscribe(undefined);
-            await session.shutdown();
-            setSession(undefined);
-            setReady(false);
-            setStarting(false);
-            setError(undefined);
-          }
-        },
+        shutdown,
         error,
       }}
     >
